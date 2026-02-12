@@ -9,6 +9,9 @@
 #import <Carbon/Carbon.h>
 #include <sokol/sokol_app.h>
 
+using namespace std;
+// NOTE: Do NOT 'using namespace tc;' here - macOS Rect conflicts with trussc::Rect
+
 // Static member definitions
 void* tcxIMEBase::sharedIMEView_ = nullptr;
 void* tcxIMEBase::sharedOriginalContentView_ = nullptr;
@@ -162,7 +165,7 @@ void tcxIME_unmarkText(tcxIMEBase* ime) {
 
 void tcxIME_getMarkedTextScreenPosition(tcxIMEBase* ime, float* x, float* y) {
     if (ime && x && y) {
-        Vec2 pos = ime->getMarkedTextScreenPosition();
+        tc::Vec2 pos = ime->getMarkedTextScreenPosition();
         *x = pos.x;
         *y = pos.y;
     }

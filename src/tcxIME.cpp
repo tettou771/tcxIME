@@ -1,4 +1,6 @@
 #include "tcxIME.h"
+using namespace std;
+using namespace tc;
 
 void tcxIMEBase::enable() {
     if (enabled_) return;
@@ -32,6 +34,7 @@ void tcxIMEBase::clear() {
     markedSelectedLength_ = 0;
     lines_.clear();
     lines_.push_back(U"");
+    softBreaks_.clear();
     candidates_.clear();
     candidateSelectedIndex_ = 0;
     cursorBlinkOffsetTime_ = getElapsedTimef();
@@ -67,6 +70,7 @@ void tcxIMEBase::onKeyPressed(KeyEventArgs& key) {
                     addStr(lines_[cursorLine_], s, cursorPos_);
                 }
             }
+            rewrap();
             break;
         }
         case 'a':
@@ -91,15 +95,18 @@ void tcxIMEBase::onKeyPressed(KeyEventArgs& key) {
     case KEY_BACKSPACE:
         deleteSelected();
         backspaceCharacter(lines_[cursorLine_], cursorPos_, true);
+        rewrap();
         break;
 
     case KEY_DELETE:
         deleteSelected();
         deleteCharacter(lines_[cursorLine_], cursorPos_, true);
+        rewrap();
         break;
 
     case KEY_ENTER:
         newLine();
+        rewrap();
         break;
 
     case KEY_UP:
@@ -113,13 +120,21 @@ void tcxIMEBase::onKeyPressed(KeyEventArgs& key) {
     case KEY_LEFT:
         if (cursorPos_ > 0) {
             cursorPos_--;
+        } else if (cursorLine_ > 0 && softBreaks_.count(cursorLine_) > 0) {
+            cursorLine_--;
+            cursorPos_ = (int)lines_[cursorLine_].length();
         }
         break;
 
     case KEY_RIGHT:
         cursorPos_++;
         if (cursorPos_ > (int)lines_[cursorLine_].length()) {
-            cursorPos_ = (int)lines_[cursorLine_].length();
+            if (cursorLine_ + 1 < (int)lines_.size() && softBreaks_.count(cursorLine_ + 1) > 0) {
+                cursorLine_++;
+                cursorPos_ = 0;
+            } else {
+                cursorPos_ = (int)lines_[cursorLine_].length();
+            }
         }
         break;
 
@@ -132,11 +147,9 @@ void tcxIMEBase::onKeyPressed(KeyEventArgs& key) {
 
 string tcxIMEBase::getString() {
     string all;
-    for (auto& a : lines_) {
-        all += UTF32toUTF8(a);
-        if (&a != &lines_.back()) {
-            all += '\n';
-        }
+    for (int i = 0; i < (int)lines_.size(); i++) {
+        if (i > 0 && softBreaks_.count(i) == 0) all += '\n';
+        all += UTF32toUTF8(lines_[i]);
     }
     return all;
 }
@@ -149,11 +162,9 @@ void tcxIMEBase::setString(const string& str) {
 
 u32string tcxIMEBase::getU32String() {
     u32string all;
-    for (auto& a : lines_) {
-        all += a;
-        if (&a != &lines_.back()) {
-            all += U'\n';
-        }
+    for (int i = 0; i < (int)lines_.size(); i++) {
+        if (i > 0 && softBreaks_.count(i) == 0) all += U'\n';
+        all += lines_[i];
     }
     return all;
 }
@@ -197,6 +208,7 @@ void tcxIMEBase::insertText(const u32string& str) {
     }
 
     state_ = (state_ == Composing) ? Kana : state_;
+    rewrap();
 }
 
 void tcxIMEBase::setMarkedTextFromOS(const u32string& str, int selectedLocation, int selectedLength) {
@@ -217,6 +229,7 @@ void tcxIMEBase::unmarkText() {
     candidates_.clear();
     candidateSelectedIndex_ = 0;
     state_ = Kana;
+    rewrap();
 }
 
 void tcxIMEBase::setCandidates(const vector<u32string>& cands, int selectedIndex) {
@@ -257,6 +270,7 @@ void tcxIMEBase::deleteSelected() {
     cursorLine_ = bl;
     cursorPos_ = bn;
     selectCancel();
+    rewrap();
 }
 
 void tcxIMEBase::newLine() {
@@ -284,10 +298,17 @@ void tcxIMEBase::addStr(u32string& target, const u32string& str, int& p) {
 void tcxIMEBase::backspaceCharacter(u32string& str, int& pos, bool lineMerge) {
     if (pos == 0) {
         if (lineMerge && cursorLine_ > 0) {
+            bool isSoftBreak = softBreaks_.count(cursorLine_) > 0;
             cursorPos_ = (int)lines_[cursorLine_ - 1].length();
             lines_[cursorLine_ - 1] += lines_[cursorLine_];
             lines_.erase(lines_.begin() + cursorLine_);
             cursorLine_--;
+            if (isSoftBreak && cursorPos_ > 0) {
+                // Soft break is not a real char — also delete the preceding char
+                auto& line = lines_[cursorLine_];
+                line = line.substr(0, cursorPos_ - 1) + line.substr(cursorPos_);
+                cursorPos_--;
+            }
         }
     } else {
         if ((int)str.length() < pos) pos = (int)str.length();
@@ -302,8 +323,14 @@ void tcxIMEBase::deleteCharacter(u32string& str, int& pos, bool lineMerge) {
     }
     if ((int)str.length() == pos) {
         if (lineMerge && cursorLine_ + 1 < (int)lines_.size()) {
+            bool isSoftBreak = softBreaks_.count(cursorLine_ + 1) > 0;
             lines_[cursorLine_] += lines_[cursorLine_ + 1];
             lines_.erase(lines_.begin() + cursorLine_ + 1);
+            if (isSoftBreak && pos < (int)lines_[cursorLine_].length()) {
+                // Soft break is not a real char — also delete the char at cursor
+                auto& line = lines_[cursorLine_];
+                line = line.substr(0, pos) + line.substr(pos + 1);
+            }
         }
     } else {
         str = str.substr(0, pos) + str.substr(pos + 1, str.length() - pos - 1);
@@ -366,4 +393,88 @@ u32string tcxIMEBase::UTF8toUTF32(const string& str) {
         result += cp;
     }
     return result;
+}
+
+// ---------------------------------------------------------------------------
+// tcxIME::rewrap — Soft-wrap lines_ based on maxWidth_ using font metrics
+// ---------------------------------------------------------------------------
+void tcxIME::rewrap() {
+    if (maxWidth_ <= 0) return;
+
+    Font& f = getFont();
+    if (!f.isLoaded()) return;
+
+    // 1. Compute absolute cursor position
+    //    (soft breaks count as 0 chars, hard breaks count as 1 char for \n)
+    int absCursor = 0;
+    for (int i = 0; i < cursorLine_; i++) {
+        absCursor += (int)lines_[i].length();
+        if (softBreaks_.count(i + 1) == 0) absCursor++; // hard break
+    }
+    absCursor += cursorPos_;
+
+    // 2. Merge soft-break lines back into logical lines
+    vector<u32string> logical;
+    for (int i = 0; i < (int)lines_.size(); i++) {
+        if (i > 0 && softBreaks_.count(i) > 0) {
+            logical.back() += lines_[i];
+        } else {
+            logical.push_back(lines_[i]);
+        }
+    }
+
+    // 3. Re-wrap each logical line character by character
+    lines_.clear();
+    softBreaks_.clear();
+
+    for (int li = 0; li < (int)logical.size(); li++) {
+        u32string& text = logical[li];
+
+        if (text.empty()) {
+            lines_.push_back(U"");
+            continue;
+        }
+
+        int start = 0;
+        bool firstSegment = true;
+        while (start < (int)text.length()) {
+            // Find how many chars fit within maxWidth_
+            int breakAt = start;
+            for (int j = start + 1; j <= (int)text.length(); j++) {
+                string sub = UTF32toUTF8(text.substr(start, j - start));
+                if (f.stringWidth(sub) > maxWidth_) break;
+                breakAt = j;
+            }
+            if (breakAt == start) breakAt = start + 1; // at least 1 char
+
+            if (!firstSegment) {
+                softBreaks_.insert((int)lines_.size());
+            }
+            lines_.push_back(text.substr(start, breakAt - start));
+
+            firstSegment = false;
+            start = breakAt;
+        }
+    }
+
+    if (lines_.empty()) lines_.push_back(U"");
+
+    // 4. Restore cursor from absolute position
+    int remaining = absCursor;
+    for (int i = 0; i < (int)lines_.size(); i++) {
+        int lineLen = (int)lines_[i].length();
+        if (remaining <= lineLen) {
+            cursorLine_ = i;
+            cursorPos_ = remaining;
+            return;
+        }
+        remaining -= lineLen;
+        if (softBreaks_.count(i + 1) == 0) {
+            remaining--; // hard break consumed 1 char
+        }
+    }
+
+    // Fallback: end of text
+    cursorLine_ = (int)lines_.size() - 1;
+    cursorPos_ = (int)lines_.back().length();
 }
