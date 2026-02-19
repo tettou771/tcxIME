@@ -105,8 +105,12 @@ void tcxIMEBase::onKeyPressed(KeyEventArgs& key) {
         break;
 
     case KEY_ENTER:
-        newLine();
-        rewrap();
+        if (onEnter) {
+            onEnter();
+        } else {
+            newLine();
+            rewrap();
+        }
         break;
 
     case KEY_UP:
@@ -200,7 +204,11 @@ void tcxIMEBase::insertText(const u32string& str) {
 
     for (auto c : str) {
         if (c == U'\n' || c == U'\r') {
-            newLine();
+            if (onEnter) {
+                onEnter();
+            } else {
+                newLine();
+            }
         } else {
             u32string s(1, c);
             addStr(lines_[cursorLine_], s, cursorPos_);

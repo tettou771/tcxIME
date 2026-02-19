@@ -6,6 +6,7 @@
 // =============================================================================
 
 #include <string>
+#include <functional>
 #include <vector>
 #include <tuple>
 #include <set>
@@ -39,6 +40,9 @@ public:
 
     bool isEnabled() { return enabled_; }
     bool isJapaneseMode() { return state_ == Kana || state_ == Composing; }
+
+    // Enter key callback (if set, newLine() is skipped — for single-line input)
+    std::function<void()> onEnter;
 
     // Text access (u32string internally, UTF-8 for getString)
     std::string getString();
