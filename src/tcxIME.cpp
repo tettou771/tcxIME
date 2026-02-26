@@ -56,10 +56,10 @@ void tcxIMEBase::onKeyPressed(KeyEventArgs& key) {
 
     if (isCtrl) {
         switch (key.key) {
-        case 'c':
+        case 'C':
             // TODO: copy
             break;
-        case 'v': {
+        case 'V': {
             // Paste
             string clip = getClipboardString();
             u32string u32clip = UTF8toUTF32(clip);
@@ -73,7 +73,7 @@ void tcxIMEBase::onKeyPressed(KeyEventArgs& key) {
             rewrap();
             break;
         }
-        case 'a':
+        case 'A':
             selectAll();
             break;
         default:
