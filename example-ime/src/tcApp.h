@@ -12,4 +12,6 @@ public:
 
 private:
     shared_ptr<tcxIME::TextField> textField_;
+    shared_ptr<tcxIME::FloatField> floatField_;
+    shared_ptr<tcxIME::IntField> intField_;
 };

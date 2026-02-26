@@ -3,163 +3,30 @@
 // =============================================================================
 // tcxIME - Native OS IME (Input Method Editor) support for TrussC
 // Enables Japanese/CJK text input with kanji conversion
+//
+// Include this single header to get everything:
+//   tcxIMEBase   - Platform-agnostic text management
+//   tcxIME       - Font-based rendering
+//   tcxIME::TextField       - RectNode text input widget
+//   tcxIME::FloatField      - RectNode float input widget
+//   tcxIME::IntField        - RectNode int input widget
 // =============================================================================
 
-#include <string>
-#include <functional>
-#include <vector>
-#include <tuple>
-#include <set>
-
-#ifdef __APPLE__
-// Forward-declare CoreFoundation types to avoid Carbon.h
-// (Carbon.h pulls in QuickDraw which defines a global 'Rect' that
-//  conflicts with trussc::Rect when 'using namespace tc' is active)
-typedef struct __CFNotificationCenter * CFNotificationCenterRef;
-typedef const struct __CFString * CFStringRef;
-typedef CFStringRef CFNotificationName;
-typedef const struct __CFDictionary * CFDictionaryRef;
-#endif
-
-#include <TrussC.h>
-
-// ---------------------------------------------------------------------------
-// tcxIMEBase - Platform-agnostic IME text management
-// ---------------------------------------------------------------------------
-class tcxIMEBase {
-public:
-    tcxIMEBase() {
-        state_ = Eisu;
-        clear();
-    }
-    virtual ~tcxIMEBase() = default;
-
-    void enable();
-    void disable();
-    void clear();
-
-    bool isEnabled() { return enabled_; }
-    bool isJapaneseMode() { return state_ == Kana || state_ == Composing; }
-
-    // Newline mode: when enabled (default), Enter inserts a newline
-    void setEnableNewLine(bool b) { enableNewLine_ = b; }
-    bool getEnableNewLine() { return enableNewLine_; }
-
-    // Enter key callback (called after newline if newline is enabled)
-    std::function<void()> onEnter;
-
-    // Text access (u32string internally, UTF-8 for getString)
-    std::string getString();
-    void setString(const std::string& str);
-    std::u32string getU32String();
-    std::string getLine(int l);
-    std::string getLineSubstr(int l, int begin, int end);
-    std::string getMarkedText();
-    std::string getMarkedTextSubstr(int begin, int end);
-
-    // Called from OS (via tcxIMEView callbacks)
-    void insertText(const std::u32string& str);
-    void setMarkedTextFromOS(const std::u32string& str, int selectedLocation, int selectedLength);
-    void unmarkText();
-
-    // Conversion candidates (from OS)
-    void setCandidates(const std::vector<std::u32string>& cands, int selectedIndex);
-    void clearCandidates();
-
-    // Screen position of marked text (for IME candidate window)
-    virtual tc::Vec2 getMarkedTextScreenPosition() { return lastDrawPos_; }
-
-    // UTF conversion utilities
-    static std::string UTF32toUTF8(const std::u32string& u32str);
-    static std::string UTF32toUTF8(const char32_t& u32char);
-    static std::u32string UTF8toUTF32(const std::string& str);
-
-protected:
-    bool enabled_ = false;
-    bool enableNewLine_ = true;
-    tc::Vec2 lastDrawPos_;
-
-    // Marked text (composing)
-    std::u32string markedText_;
-    int markedSelectedLocation_ = 0;
-    int markedSelectedLength_ = 0;
-
-    // Conversion candidates
-    std::vector<std::u32string> candidates_;
-    int candidateSelectedIndex_ = 0;
-
-    // Confirmed text (multi-line)
-    std::vector<std::u32string> lines_;
-    std::set<int> softBreaks_;  // indices of soft-wrapped lines (auto line breaks)
-    virtual void rewrap() {}    // overridden by tcxIME when maxWidth is set
-
-    // Selection
-    typedef std::tuple<int, int> TextSelectPos;
-    TextSelectPos selectBegin_, selectEnd_;
-    void selectCancel() {
-        selectBegin_ = selectEnd_ = TextSelectPos(0, 0);
-    }
-    bool isSelected() {
-        return selectBegin_ != selectEnd_;
-    }
-    void selectAll() {
-        selectBegin_ = TextSelectPos(0, 0);
-        selectEnd_ = TextSelectPos(lines_.size() - 1, lines_.back().length());
-    }
-    void deleteSelected();
-    std::string getSelectedText();
-
-    void newLine();
-    void lineChange(int n);
-
-    // Cursor
-    int cursorLine_ = 0;
-    int cursorPos_ = 0;
-
-    // String manipulation
-    void addStr(std::u32string& target, const std::u32string& str, int& p);
-    void backspaceCharacter(std::u32string& str, int& pos, bool lineMerge = false);
-    void deleteCharacter(std::u32string& str, int& pos, bool lineMerge = false);
-
-    enum State { Eisu, Kana, Composing };
-    State state_;
-
-    // OS IME observer
-    void startIMEObserver();
-    void stopIMEObserver();
-    void syncWithSystemIME();
-
-    // Key handler
-    void onKeyPressed(tc::KeyEventArgs& key);
-    tc::EventListener keyListener_;
-
-#ifdef __APPLE__
-    static void onInputSourceChanged(CFNotificationCenterRef center,
-                                     void* observer,
-                                     CFNotificationName name,
-                                     const void* object,
-                                     CFDictionaryRef userInfo);
-
-    // Shared IME view (one per window)
-    static void* sharedIMEView_;
-    static void* sharedOriginalContentView_;
-    static tcxIMEBase* activeIMEInstance_;
-    static int imeViewRefCount_;
-
-    void setupIMEInputView();
-    void removeIMEInputView();
-    void becomeActiveIME();
-#endif
-
-    float cursorBlinkOffsetTime_ = 0;
-};
+#include "tcxIMEBase.h"
 
 // ---------------------------------------------------------------------------
 // tcxIME - Main class with Font-based drawing
 // ---------------------------------------------------------------------------
 class tcxIME : public tcxIMEBase {
 public:
-    class TextField;  // Node-based wrapper with built-in mouse handling
+    // Nested widget classes (defined in separate headers, included below)
+    class TextField;
+    template<typename T> class FloatingPointField_;
+    template<typename T> class IntegerField_;
+    using FloatField  = FloatingPointField_<float>;
+    using DoubleField = FloatingPointField_<double>;
+    using IntField    = IntegerField_<int>;
+    using Int64Field  = IntegerField_<int64_t>;
 
     // Set font from file path
     void setFont(std::string path, float fontSize) {
@@ -498,76 +365,7 @@ private:
     }
 };
 
-// ---------------------------------------------------------------------------
-// tcxIME::TextField - Node-based text input with built-in mouse handling
-// ---------------------------------------------------------------------------
-class tcxIME::TextField : public tc::RectNode {
-public:
-    // Font setup
-    void setFont(std::string path, float fontSize) { ime_.setFont(path, fontSize); }
-    void setFont(tc::Font* sharedFont) { ime_.setFont(sharedFont); }
-
-    // Text access
-    std::string getString() { return ime_.getString(); }
-    void setString(const std::string& str) { ime_.setString(str); }
-    std::string getMarkedText() { return ime_.getMarkedText(); }
-    void clear() { ime_.clear(); }
-
-    // IME state
-    bool isJapaneseMode() { return ime_.isJapaneseMode(); }
-
-    // Max width for wrapping
-    void setMaxWidth(float w) { ime_.setMaxWidth(w); }
-
-    // Newline mode (default: enabled)
-    void setEnableNewLine(bool b) { ime_.setEnableNewLine(b); }
-    bool getEnableNewLine() { return ime_.getEnableNewLine(); }
-
-    // Access underlying IME
-    tcxIME& getIME() { return ime_; }
-
-    void setup() override {
-        enableEvents();
-    }
-
-    void enable() { ime_.enable(); tc::redraw(); }
-    void disable() { ime_.disable(); tc::redraw(); }
-    bool isEnabled() { return ime_.isEnabled(); }
-
-    void draw() override {
-        ime_.draw(0, 0);
-    }
-
-    // Hit test: only where text actually exists (jagged for multi-line)
-    bool hitTest(tc::Vec2 local) override {
-        if (!isEventsEnabled()) return false;
-
-        float lineHeight = ime_.getLineHeight();
-        if (lineHeight <= 0 || local.y < 0) return false;
-
-        int line = (int)(local.y / lineHeight);
-        if (line >= ime_.getLineCount()) return false;
-
-        // Width of this line's text + cursor width + small padding
-        float lineW = ime_.getLineWidth(line) + 4;
-        return local.x >= 0 && local.x <= lineW;
-    }
-
-    bool onMousePress(tc::Vec2 local, int button) override {
-        (void)button;
-        if (!ime_.isEnabled()) enable();
-        ime_.setCursorFromMouse(local.x, local.y);
-        tc::redraw();
-        return true;
-    }
-
-    bool onMouseDrag(tc::Vec2 local, int button) override {
-        (void)button;
-        ime_.extendSelectionFromMouse(local.x, local.y);
-        tc::redraw();
-        return true;
-    }
-
-private:
-    tcxIME ime_;
-};
+// Include nested class definitions
+#include "tcxTextField.h"
+#include "tcxFloatField.h"
+#include "tcxIntField.h"

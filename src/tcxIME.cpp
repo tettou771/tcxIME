@@ -1,9 +1,15 @@
+#include "tcxIMEBase.h"
 #include "tcxIME.h"
 using namespace std;
 using namespace tc;
 
 void tcxIMEBase::enable() {
     if (enabled_) return;
+
+    // Disable previously active IME (only one can be active at a time)
+    if (activeIMEInstance_ && activeIMEInstance_ != this) {
+        activeIMEInstance_->disable();
+    }
 
     enabled_ = true;
     keyListener_ = events().keyPressed.listen([this](KeyEventArgs& e) {
@@ -19,6 +25,7 @@ void tcxIMEBase::enable() {
 void tcxIMEBase::disable() {
     if (!enabled_) return;
 
+    selectCancel();
     enabled_ = false;
     keyListener_.disconnect();
 
@@ -75,6 +82,7 @@ void tcxIMEBase::onKeyPressed(KeyEventArgs& key) {
                 if (c == U'\n') {
                     if (enableNewLine_) newLine();
                 } else {
+                    if (inputFilter && !inputFilter(c)) continue;
                     u32string s(1, c);
                     addStr(lines_[cursorLine_], s, cursorPos_);
                 }
@@ -266,6 +274,7 @@ void tcxIMEBase::insertText(const u32string& str) {
             if (enableNewLine_) newLine();
             if (onEnter) onEnter();
         } else {
+            if (inputFilter && !inputFilter(c)) continue;
             u32string s(1, c);
             addStr(lines_[cursorLine_], s, cursorPos_);
         }
