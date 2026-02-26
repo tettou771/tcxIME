@@ -57,15 +57,24 @@ void tcxIMEBase::onKeyPressed(KeyEventArgs& key) {
     if (isCtrl) {
         switch (key.key) {
         case 'C':
-            // TODO: copy
+            if (isSelected()) {
+                setClipboardString(getSelectedText());
+            }
+            break;
+        case 'X':
+            if (isSelected()) {
+                setClipboardString(getSelectedText());
+                deleteSelected();
+            }
             break;
         case 'V': {
             // Paste
             string clip = getClipboardString();
             u32string u32clip = UTF8toUTF32(clip);
             for (auto c : u32clip) {
-                if (c == U'\n') newLine();
-                else {
+                if (c == U'\n') {
+                    if (enableNewLine_) newLine();
+                } else {
                     u32string s(1, c);
                     addStr(lines_[cursorLine_], s, cursorPos_);
                 }
@@ -105,11 +114,12 @@ void tcxIMEBase::onKeyPressed(KeyEventArgs& key) {
         break;
 
     case KEY_ENTER:
-        if (onEnter) {
-            onEnter();
-        } else {
+        if (enableNewLine_) {
             newLine();
             rewrap();
+        }
+        if (onEnter) {
+            onEnter();
         }
         break;
 
@@ -122,22 +132,71 @@ void tcxIMEBase::onKeyPressed(KeyEventArgs& key) {
         break;
 
     case KEY_LEFT:
-        if (cursorPos_ > 0) {
-            cursorPos_--;
-        } else if (cursorLine_ > 0 && softBreaks_.count(cursorLine_) > 0) {
-            cursorLine_--;
-            cursorPos_ = (int)lines_[cursorLine_].length();
+        if (key.shift) {
+            // Shift+Left: extend selection
+            if (!isSelected()) selectBegin_ = TextSelectPos(cursorLine_, cursorPos_);
+            if (cursorPos_ > 0) {
+                cursorPos_--;
+            } else if (cursorLine_ > 0 && softBreaks_.count(cursorLine_) > 0) {
+                cursorLine_--;
+                cursorPos_ = (int)lines_[cursorLine_].length();
+            }
+            selectEnd_ = TextSelectPos(cursorLine_, cursorPos_);
+        } else {
+            if (isSelected()) {
+                // Move cursor to start of selection, then cancel
+                int bl, bn, el, en;
+                tie(bl, bn) = selectBegin_;
+                tie(el, en) = selectEnd_;
+                if (bl > el || (bl == el && bn > en)) { swap(bl, el); swap(bn, en); }
+                cursorLine_ = bl;
+                cursorPos_ = bn;
+                selectCancel();
+            } else {
+                if (cursorPos_ > 0) {
+                    cursorPos_--;
+                } else if (cursorLine_ > 0 && softBreaks_.count(cursorLine_) > 0) {
+                    cursorLine_--;
+                    cursorPos_ = (int)lines_[cursorLine_].length();
+                }
+            }
         }
         break;
 
     case KEY_RIGHT:
-        cursorPos_++;
-        if (cursorPos_ > (int)lines_[cursorLine_].length()) {
-            if (cursorLine_ + 1 < (int)lines_.size() && softBreaks_.count(cursorLine_ + 1) > 0) {
-                cursorLine_++;
-                cursorPos_ = 0;
+        if (key.shift) {
+            // Shift+Right: extend selection
+            if (!isSelected()) selectBegin_ = TextSelectPos(cursorLine_, cursorPos_);
+            cursorPos_++;
+            if (cursorPos_ > (int)lines_[cursorLine_].length()) {
+                if (cursorLine_ + 1 < (int)lines_.size() && softBreaks_.count(cursorLine_ + 1) > 0) {
+                    cursorLine_++;
+                    cursorPos_ = 0;
+                } else {
+                    cursorPos_ = (int)lines_[cursorLine_].length();
+                }
+            }
+            selectEnd_ = TextSelectPos(cursorLine_, cursorPos_);
+        } else {
+            if (isSelected()) {
+                // Move cursor to end of selection, then cancel
+                int bl, bn, el, en;
+                tie(bl, bn) = selectBegin_;
+                tie(el, en) = selectEnd_;
+                if (bl > el || (bl == el && bn > en)) { swap(bl, el); swap(bn, en); }
+                cursorLine_ = el;
+                cursorPos_ = en;
+                selectCancel();
             } else {
-                cursorPos_ = (int)lines_[cursorLine_].length();
+                cursorPos_++;
+                if (cursorPos_ > (int)lines_[cursorLine_].length()) {
+                    if (cursorLine_ + 1 < (int)lines_.size() && softBreaks_.count(cursorLine_ + 1) > 0) {
+                        cursorLine_++;
+                        cursorPos_ = 0;
+                    } else {
+                        cursorPos_ = (int)lines_[cursorLine_].length();
+                    }
+                }
             }
         }
         break;
@@ -204,11 +263,8 @@ void tcxIMEBase::insertText(const u32string& str) {
 
     for (auto c : str) {
         if (c == U'\n' || c == U'\r') {
-            if (onEnter) {
-                onEnter();
-            } else {
-                newLine();
-            }
+            if (enableNewLine_) newLine();
+            if (onEnter) onEnter();
         } else {
             u32string s(1, c);
             addStr(lines_[cursorLine_], s, cursorPos_);
@@ -279,6 +335,39 @@ void tcxIMEBase::deleteSelected() {
     cursorPos_ = bn;
     selectCancel();
     rewrap();
+}
+
+string tcxIMEBase::getSelectedText() {
+    if (!isSelected()) return "";
+
+    int bl, bn, el, en;
+    tie(bl, bn) = selectBegin_;
+    tie(el, en) = selectEnd_;
+
+    // Normalize order
+    if (bl > el || (bl == el && bn > en)) {
+        swap(bl, el);
+        swap(bn, en);
+    }
+
+    if (bl == el) {
+        // Single line selection
+        int len = (int)lines_[bl].length();
+        bn = min(bn, len);
+        en = min(en, len);
+        return UTF32toUTF8(lines_[bl].substr(bn, en - bn));
+    }
+
+    // Multi-line selection
+    string result;
+    result += UTF32toUTF8(lines_[bl].substr(bn));
+    for (int i = bl + 1; i < el; i++) {
+        if (softBreaks_.count(i) == 0) result += '\n';
+        result += UTF32toUTF8(lines_[i]);
+    }
+    if (softBreaks_.count(el) == 0) result += '\n';
+    result += UTF32toUTF8(lines_[el].substr(0, min(en, (int)lines_[el].length())));
+    return result;
 }
 
 void tcxIMEBase::newLine() {

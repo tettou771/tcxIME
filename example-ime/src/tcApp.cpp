@@ -1,9 +1,13 @@
 #include "tcApp.h"
 
 void tcApp::setup() {
-    // Load Japanese font (Hiragino on macOS)
-    ime_.setFont("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc", 24);
-    ime_.enable();
+    // Set up TextField as a Node
+    textField_ = make_shared<tcxIME::TextField>();
+    textField_->setFont("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc", 24);
+    textField_->setPos(20, 100);
+    textField_->setSize(760, 400);
+    textField_->enable();
+    addChild(textField_);
 }
 
 void tcApp::draw() {
@@ -12,15 +16,13 @@ void tcApp::draw() {
     // Title
     setColor(0.5f);
     drawBitmapString("tcxIME Example - Type Japanese!", 20, 30);
-    drawBitmapString("Press keys to type. IME conversion supported.", 20, 50);
+    drawBitmapString("Click & drag to select, Cmd+C to copy, Cmd+V to paste", 20, 50);
 
-    // IME text
-    setColor(1.0f);
-    ime_.draw(20, 100);
+    // TextField draws itself as a child Node
 
     // Status
     setColor(0.4f);
-    string mode = ime_.isJapaneseMode() ? "Japanese" : "English";
+    string mode = textField_->isJapaneseMode() ? "Japanese" : "English";
     drawBitmapString("Mode: " + mode, 20, getWindowHeight() - 40);
-    drawBitmapString("Text: " + ime_.getString(), 20, getWindowHeight() - 20);
+    drawBitmapString("Text: " + textField_->getString(), 20, getWindowHeight() - 20);
 }

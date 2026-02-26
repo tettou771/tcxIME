@@ -11,5 +11,5 @@ public:
     void draw() override;
 
 private:
-    tcxIME ime_;
+    shared_ptr<tcxIME::TextField> textField_;
 };

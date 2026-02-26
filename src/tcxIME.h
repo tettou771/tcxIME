@@ -41,7 +41,11 @@ public:
     bool isEnabled() { return enabled_; }
     bool isJapaneseMode() { return state_ == Kana || state_ == Composing; }
 
-    // Enter key callback (if set, newLine() is skipped — for single-line input)
+    // Newline mode: when enabled (default), Enter inserts a newline
+    void setEnableNewLine(bool b) { enableNewLine_ = b; }
+    bool getEnableNewLine() { return enableNewLine_; }
+
+    // Enter key callback (called after newline if newline is enabled)
     std::function<void()> onEnter;
 
     // Text access (u32string internally, UTF-8 for getString)
@@ -72,6 +76,7 @@ public:
 
 protected:
     bool enabled_ = false;
+    bool enableNewLine_ = true;
     tc::Vec2 lastDrawPos_;
 
     // Marked text (composing)
@@ -102,6 +107,7 @@ protected:
         selectEnd_ = TextSelectPos(lines_.size() - 1, lines_.back().length());
     }
     void deleteSelected();
+    std::string getSelectedText();
 
     void newLine();
     void lineChange(int n);
@@ -153,6 +159,8 @@ protected:
 // ---------------------------------------------------------------------------
 class tcxIME : public tcxIMEBase {
 public:
+    class TextField;  // Node-based wrapper with built-in mouse handling
+
     // Set font from file path
     void setFont(std::string path, float fontSize) {
         font_.load(path, fontSize);
@@ -195,12 +203,40 @@ public:
             }
         };
 
+        // Selection highlight lambda (blue semi-transparent background)
+        auto drawSelectionHighlight = [&](int lineIdx, float lineX) {
+            if (!isSelected()) return;
+            int bl, bn, el, en;
+            std::tie(bl, bn) = selectBegin_;
+            std::tie(el, en) = selectEnd_;
+            if (bl > el || (bl == el && bn > en)) {
+                std::swap(bl, el);
+                std::swap(bn, en);
+            }
+            if (lineIdx < bl || lineIdx > el) return;
+
+            int lineLen = (int)lines_[lineIdx].length();
+            int startChar = (lineIdx == bl) ? bn : 0;
+            int endChar   = (lineIdx == el) ? en : lineLen;
+            startChar = std::min(startChar, lineLen);
+            endChar   = std::min(endChar, lineLen);
+            if (startChar >= endChar) return;
+
+            float sx = f.stringWidth(UTF32toUTF8(lines_[lineIdx].substr(0, startChar)));
+            float ex = f.stringWidth(UTF32toUTF8(lines_[lineIdx].substr(0, endChar)));
+            tc::pushStyle();
+            tc::setColor(0.2f, 0.5f, 1.0f, 0.3f);
+            tc::drawRect(lineX + sx, 0, ex - sx, lineHeight);
+            tc::popStyle();
+        };
+
         tc::pushMatrix();
         tc::translate(x, y);
 
         for (int i = 0; i < (int)lines_.size(); ++i) {
             if (i != cursorLine_) {
                 // Non-active line
+                drawSelectionHighlight(i, 0);
                 f.drawString(UTF32toUTF8(lines_[i]), 0, 0);
             } else {
                 // Current input line
@@ -302,6 +338,7 @@ public:
 
                 } else {
                     // --- Original path (no wrapping or no marked text) ---
+                    drawSelectionHighlight(i, 0);
                     tc::pushMatrix();
 
                     f.drawString(beforeCursor, 0, 0);
@@ -374,6 +411,20 @@ public:
         draw(pos.x, pos.y);
     }
 
+    // Set cursor position from mouse click (same coordinate space as draw())
+    bool setCursorFromMouse(float mx, float my) {
+        if (!hitTestMouse(mx, my)) return false;
+        selectBegin_ = selectEnd_ = TextSelectPos(cursorLine_, cursorPos_);
+        return true;
+    }
+
+    // Extend selection by dragging (call on mouseDragged)
+    bool extendSelectionFromMouse(float mx, float my) {
+        if (!hitTestMouse(mx, my)) return false;
+        selectEnd_ = TextSelectPos(cursorLine_, cursorPos_);
+        return true;
+    }
+
     // Screen position of marked text (for IME candidate window)
     tc::Vec2 getMarkedTextScreenPosition() override {
         tc::Font& f = getFont();
@@ -388,10 +439,135 @@ public:
         return tc::Vec2(x, y);
     }
 
+    // Get text line width (for hit testing by TextField)
+    float getLineWidth(int line) {
+        tc::Font& f = getFont();
+        if (!f.isLoaded() || line < 0 || line >= (int)lines_.size()) return 0;
+        float w = f.stringWidth(UTF32toUTF8(lines_[line]));
+        // Include marked text width on cursor line
+        if (line == cursorLine_ && markedText_.length() > 0) {
+            w += f.stringWidth(UTF32toUTF8(markedText_)) + f.getSize() * 0.2f;
+        }
+        return w;
+    }
+
+    int getLineCount() { return (int)lines_.size(); }
+
+    float getLineHeight() {
+        tc::Font& f = getFont();
+        return f.isLoaded() ? f.getLineHeight() : 0;
+    }
+
 private:
     tc::Font font_;
     tc::Font* fontPtr_ = nullptr;
     tc::Font& getFont() { return fontPtr_ ? *fontPtr_ : font_; }
     float maxWidth_ = 0;
     void rewrap() override;
+
+    // Hit-test: convert mouse position to cursor line/pos
+    bool hitTestMouse(float mx, float my) {
+        tc::Font& f = getFont();
+        if (!f.isLoaded()) return false;
+
+        float lineHeight = f.getLineHeight();
+        float localX = mx - lastDrawPos_.x;
+        float localY = my - lastDrawPos_.y;
+        if (localY < 0) localY = 0;
+
+        int line = (int)(localY / lineHeight);
+        if (line >= (int)lines_.size()) line = (int)lines_.size() - 1;
+        if (line < 0) line = 0;
+
+        int pos = 0;
+        int len = (int)lines_[line].length();
+        if (localX > 0) {
+            float prevW = 0;
+            for (int j = 1; j <= len; j++) {
+                float w = f.stringWidth(getLineSubstr(line, 0, j));
+                if (localX < (prevW + w) * 0.5f) { pos = j - 1; break; }
+                prevW = w;
+                pos = j;
+            }
+        }
+
+        cursorLine_ = line;
+        cursorPos_ = pos;
+        cursorBlinkOffsetTime_ = tc::getElapsedTimef();
+        return true;
+    }
+};
+
+// ---------------------------------------------------------------------------
+// tcxIME::TextField - Node-based text input with built-in mouse handling
+// ---------------------------------------------------------------------------
+class tcxIME::TextField : public tc::RectNode {
+public:
+    // Font setup
+    void setFont(std::string path, float fontSize) { ime_.setFont(path, fontSize); }
+    void setFont(tc::Font* sharedFont) { ime_.setFont(sharedFont); }
+
+    // Text access
+    std::string getString() { return ime_.getString(); }
+    void setString(const std::string& str) { ime_.setString(str); }
+    std::string getMarkedText() { return ime_.getMarkedText(); }
+    void clear() { ime_.clear(); }
+
+    // IME state
+    bool isJapaneseMode() { return ime_.isJapaneseMode(); }
+
+    // Max width for wrapping
+    void setMaxWidth(float w) { ime_.setMaxWidth(w); }
+
+    // Newline mode (default: enabled)
+    void setEnableNewLine(bool b) { ime_.setEnableNewLine(b); }
+    bool getEnableNewLine() { return ime_.getEnableNewLine(); }
+
+    // Access underlying IME
+    tcxIME& getIME() { return ime_; }
+
+    void setup() override {
+        enableEvents();
+    }
+
+    void enable() { ime_.enable(); tc::redraw(); }
+    void disable() { ime_.disable(); tc::redraw(); }
+    bool isEnabled() { return ime_.isEnabled(); }
+
+    void draw() override {
+        ime_.draw(0, 0);
+    }
+
+    // Hit test: only where text actually exists (jagged for multi-line)
+    bool hitTest(tc::Vec2 local) override {
+        if (!isEventsEnabled()) return false;
+
+        float lineHeight = ime_.getLineHeight();
+        if (lineHeight <= 0 || local.y < 0) return false;
+
+        int line = (int)(local.y / lineHeight);
+        if (line >= ime_.getLineCount()) return false;
+
+        // Width of this line's text + cursor width + small padding
+        float lineW = ime_.getLineWidth(line) + 4;
+        return local.x >= 0 && local.x <= lineW;
+    }
+
+    bool onMousePress(tc::Vec2 local, int button) override {
+        (void)button;
+        if (!ime_.isEnabled()) enable();
+        ime_.setCursorFromMouse(local.x, local.y);
+        tc::redraw();
+        return true;
+    }
+
+    bool onMouseDrag(tc::Vec2 local, int button) override {
+        (void)button;
+        ime_.extendSelectionFromMouse(local.x, local.y);
+        tc::redraw();
+        return true;
+    }
+
+private:
+    tcxIME ime_;
 };
