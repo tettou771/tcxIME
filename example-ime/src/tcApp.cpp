@@ -23,7 +23,7 @@ void tcApp::setup() {
     floatField_->setPos(20, 370);
     floatField_->setSize(200, 30);
     floatField_->setRange(-100.0f, 100.0f);
-    floatField_->setValue(3.14f);
+    floatField_->setValue(TAU);
     floatField_->onValueChanged = [](float v) {
         logNotice() << "Float value: " << v;
     };
