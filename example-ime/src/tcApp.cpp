@@ -1,9 +1,17 @@
 #include "tcApp.h"
 
 void tcApp::setup() {
+#ifdef __APPLE__
+    const char* fontPath = "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc";
+#elif defined(_WIN32)
+    const char* fontPath = "C:/Windows/Fonts/YuGothM.ttc";
+#else
+    const char* fontPath = "";
+#endif
+
     // TextField - multi-line text input
     textField_ = make_shared<tcxIME::TextField>();
-    textField_->setFont("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc", 24);
+    textField_->setFont(fontPath, 24);
     textField_->setPos(20, 110);
     textField_->setSize(760, 200);
     textField_->enable();
@@ -11,7 +19,7 @@ void tcApp::setup() {
 
     // FloatField - float input with range
     floatField_ = make_shared<tcxIME::FloatField>();
-    floatField_->setFont("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc", 20);
+    floatField_->setFont(fontPath, 20);
     floatField_->setPos(20, 370);
     floatField_->setSize(200, 30);
     floatField_->setRange(-100.0f, 100.0f);
@@ -24,7 +32,7 @@ void tcApp::setup() {
 
     // IntField - int input with range
     intField_ = make_shared<tcxIME::IntField>();
-    intField_->setFont("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc", 20);
+    intField_->setFont(fontPath, 20);
     intField_->setPos(20, 430);
     intField_->setSize(200, 30);
     intField_->setRange(0, 255);
@@ -42,7 +50,11 @@ void tcApp::draw() {
     // Title
     setColor(0.5f);
     drawBitmapString("tcxIME Example - Type Japanese!", 20, 30);
+#ifdef __APPLE__
     drawBitmapString("Click & drag to select, Cmd+C/X to copy/cut, Cmd+V to paste", 20, 50);
+#else
+    drawBitmapString("Click & drag to select, Ctrl+C/X to copy/cut, Ctrl+V to paste", 20, 50);
+#endif
 
     // Labels
     setColor(0.45f);

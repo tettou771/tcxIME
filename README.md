@@ -3,20 +3,20 @@
 Native OS IME (Input Method Editor) addon for [TrussC](https://github.com/toru-music/trussc).
 Enables Japanese / CJK text input with kanji conversion, inline marked-text rendering, and automatic word wrapping.
 
-> **Platform support:** macOS only (full IME). Windows / Linux compile with stubs but IME is not yet functional.
+> **Platform support:** macOS / Windows (full IME). Linux compiles with stubs but IME is not yet functional.
 
 ---
 
 ## 概要
 
-tcxIME は TrussC 用の IME アドオンで、macOS のネイティブ日本語入力（かな漢字変換）をアプリに組み込める。
+tcxIME は TrussC 用の IME アドオンで、macOS / Windows のネイティブ日本語入力（かな漢字変換）をアプリに組み込める。
 
 - ひらがな入力 → 漢字変換 → 確定 の一連のフローをサポート
 - 変換候補ウィンドウの表示
 - マルチライン対応（Enter で改行、上下矢印で行移動）
 - `maxWidth` 指定による自動折り返し（確定テキスト・変換中テキスト両対応）
-- テキスト選択（クリック、ドラッグ、Shift+矢印、Cmd+A）
-- コピー（Cmd+C）、カット（Cmd+X）、ペースト（Cmd+V）
+- テキスト選択（クリック、ドラッグ、Shift+矢印、Cmd/Ctrl+A）
+- コピー（Cmd/Ctrl+C）、カット（Cmd/Ctrl+X）、ペースト（Cmd/Ctrl+V）
 - 英数 / かな モードの OS 同期
 - **Node ベースのウィジェット**: TextField, FloatField, IntField 等
 - **排他制御**: 複数フィールドがあっても、アクティブな IME は常に 1 つだけ
@@ -213,10 +213,10 @@ addChild(intField);
 
 | キー | 機能 |
 |------|------|
-| Cmd+A | 全選択 |
-| Cmd+C | コピー |
-| Cmd+X | カット |
-| Cmd+V | ペースト |
+| Cmd+A (macOS) / Ctrl+A (Win) | 全選択 |
+| Cmd+C / Ctrl+C | コピー |
+| Cmd+X / Ctrl+X | カット |
+| Cmd+V / Ctrl+V | ペースト |
 | Shift+←/→ | 選択範囲を拡張 |
 | ←/→（選択中） | 選択解除して端にカーソル移動 |
 | Enter | 改行（有効時）+ onEnter コールバック |
@@ -260,7 +260,8 @@ tcxIME/
 │   ├── tcxIMEView.h       # NSTextInputClient ビュー宣言 (macOS)
 │   ├── tcxIMEView.mm      # NSTextInputClient 実装 (macOS)
 │   ├── tcxIME_mac.mm      # macOS 入力ソース監視、IME ビュー管理
-│   └── tcxIME_stub.cpp    # Windows/Linux 用スタブ
+│   ├── tcxIME_win.cpp     # Windows IMM32 API による IME 実装
+│   └── tcxIME_stub.cpp    # Linux 用スタブ
 └── example-ime/           # サンプルアプリ
     └── src/
         ├── main.cpp
@@ -273,7 +274,7 @@ tcxIME/
 | Platform | Status |
 |----------|--------|
 | macOS | Full support (NSTextInputClient + Carbon) |
-| Windows | Compiles (stub) — IME not yet implemented |
+| Windows | Full support (IMM32 API + WndProc subclass) |
 | Linux | Compiles (stub) — IME not yet implemented |
 | Web (Emscripten) | Compiles (stub) — IME not yet implemented |
 

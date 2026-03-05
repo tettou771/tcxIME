@@ -10,6 +10,14 @@
 #include <tuple>
 #include <set>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <imm.h>
+#endif
+
 #ifdef __APPLE__
 // Forward-declare CoreFoundation types to avoid Carbon.h
 // (Carbon.h pulls in QuickDraw which defines a global 'Rect' that
@@ -136,6 +144,8 @@ protected:
     void onKeyPressed(tc::KeyEventArgs& key);
     tc::EventListener keyListener_;
 
+    static tcxIMEBase* activeIMEInstance_;
+
 #ifdef __APPLE__
     static void onInputSourceChanged(CFNotificationCenterRef center,
                                      void* observer,
@@ -146,12 +156,23 @@ protected:
     // Shared IME view (one per window)
     static void* sharedIMEView_;
     static void* sharedOriginalContentView_;
-    static tcxIMEBase* activeIMEInstance_;
     static int imeViewRefCount_;
 
     void setupIMEInputView();
     void removeIMEInputView();
     void becomeActiveIME();
+#endif
+
+#ifdef _WIN32
+    static WNDPROC originalWndProc_;
+    static int imeViewRefCount_;
+    static bool suppressNextChar_;
+
+    void setupIMEInputView();
+    void removeIMEInputView();
+    void becomeActiveIME();
+
+    static LRESULT CALLBACK IMEWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #endif
 
     float cursorBlinkOffsetTime_ = 0;

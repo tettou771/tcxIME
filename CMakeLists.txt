@@ -2,11 +2,18 @@ cmake_minimum_required(VERSION 3.20)
 message(STATUS "[tcxIME] Loading addon...")
 
 # Collect source files
-file(GLOB_RECURSE TCX_IME_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.mm"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
-)
+if(APPLE)
+    file(GLOB_RECURSE TCX_IME_SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.mm"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+    )
+else()
+    file(GLOB_RECURSE TCX_IME_SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
+    )
+endif()
 
 add_library(tcxIME STATIC ${TCX_IME_SOURCES})
 target_include_directories(tcxIME PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -22,6 +29,8 @@ if(APPLE AND NOT EMSCRIPTEN)
     target_link_libraries(tcxIME PUBLIC
         "-framework Carbon"
     )
+elseif(WIN32)
+    target_link_libraries(tcxIME PUBLIC imm32)
 endif()
 
 message(STATUS "[tcxIME] Addon loaded")

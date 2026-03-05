@@ -19,6 +19,8 @@ void tcxIMEBase::enable() {
     startIMEObserver();
 #ifdef __APPLE__
     setupIMEInputView();
+#elif defined(_WIN32)
+    setupIMEInputView();
 #endif
 }
 
@@ -31,6 +33,8 @@ void tcxIMEBase::disable() {
 
     stopIMEObserver();
 #ifdef __APPLE__
+    removeIMEInputView();
+#elif defined(_WIN32)
     removeIMEInputView();
 #endif
 }
