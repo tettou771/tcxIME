@@ -59,6 +59,9 @@ public:
     // Enter key callback (called after newline if newline is enabled)
     std::function<void()> onEnter;
 
+    // Insert a newline at the current cursor position
+    void newLine();
+
     // Text access (u32string internally, UTF-8 for getString)
     std::string getString();
     void setString(const std::string& str);
@@ -120,7 +123,6 @@ protected:
     void deleteSelected();
     std::string getSelectedText();
 
-    void newLine();
     void lineChange(int n);
 
     // Cursor
