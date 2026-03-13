@@ -51,6 +51,45 @@ void tcxIMEBase::onInputSourceChanged(CFNotificationCenterRef center,
     }
 }
 
+void tcxIMEBase::setJapaneseMode(bool japanese) {
+    // Find the desired input source and select it
+    CFStringRef targetID = japanese
+        ? CFSTR("com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese")
+        : CFSTR("com.apple.keylayout.ABC");
+
+    NSDictionary* filter = @{
+        (__bridge NSString*)kTISPropertyInputSourceID : (__bridge NSString*)targetID
+    };
+    CFArrayRef sources = TISCreateInputSourceList((__bridge CFDictionaryRef)filter, false);
+    if (sources && CFArrayGetCount(sources) > 0) {
+        TISInputSourceRef source = (TISInputSourceRef)CFArrayGetValueAtIndex(sources, 0);
+        TISSelectInputSource(source);
+    }
+    if (sources) CFRelease(sources);
+
+    // If exact match not found, try broader search
+    if (!sources || CFArrayGetCount(sources) == 0) {
+        NSString* keyword = japanese ? @"Japanese" : @"ABC";
+        NSDictionary* broadFilter = @{
+            (__bridge NSString*)kTISPropertyInputSourceCategory : (__bridge NSString*)kTISCategoryKeyboardInputSource
+        };
+        CFArrayRef allSources = TISCreateInputSourceList((__bridge CFDictionaryRef)broadFilter, false);
+        if (allSources) {
+            for (CFIndex i = 0; i < CFArrayGetCount(allSources); i++) {
+                TISInputSourceRef src = (TISInputSourceRef)CFArrayGetValueAtIndex(allSources, i);
+                CFStringRef srcID = (CFStringRef)TISGetInputSourceProperty(src, kTISPropertyInputSourceID);
+                if (srcID && CFStringFind(srcID, (__bridge CFStringRef)keyword, 0).location != kCFNotFound) {
+                    TISSelectInputSource(src);
+                    break;
+                }
+            }
+            CFRelease(allSources);
+        }
+    }
+
+    syncWithSystemIME();
+}
+
 void tcxIMEBase::syncWithSystemIME() {
     TISInputSourceRef source = TISCopyCurrentKeyboardInputSource();
     if (source) {

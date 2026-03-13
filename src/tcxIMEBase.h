@@ -48,6 +48,9 @@ public:
     bool isEnabled() { return enabled_; }
     bool isJapaneseMode() { return state_ == Kana || state_ == Composing; }
 
+    // Switch OS input source to Japanese (true) or ASCII (false)
+    void setJapaneseMode(bool japanese);
+
     // Newline mode: when enabled (default), Enter inserts a newline
     void setEnableNewLine(bool b) { enableNewLine_ = b; }
     bool getEnableNewLine() { return enableNewLine_; }

@@ -218,6 +218,23 @@ void tcxIMEBase::stopIMEObserver() {
     // Nothing to do — subclassing is managed by setupIMEInputView/removeIMEInputView
 }
 
+void tcxIMEBase::setJapaneseMode(bool japanese) {
+    HWND hWnd = (HWND)sapp_win32_get_hwnd();
+    if (!hWnd) return;
+
+    HIMC hIMC = ImmGetContext(hWnd);
+    if (!hIMC) return;
+
+    if (japanese) {
+        ImmSetOpenStatus(hIMC, TRUE);
+    } else {
+        ImmSetOpenStatus(hIMC, FALSE);
+    }
+    ImmReleaseContext(hWnd, hIMC);
+
+    syncWithSystemIME();
+}
+
 void tcxIMEBase::syncWithSystemIME() {
     HWND hWnd = (HWND)sapp_win32_get_hwnd();
     if (!hWnd) return;

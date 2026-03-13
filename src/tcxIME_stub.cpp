@@ -10,5 +10,6 @@ tcxIMEBase* tcxIMEBase::activeIMEInstance_ = nullptr;
 void tcxIMEBase::startIMEObserver() {}
 void tcxIMEBase::stopIMEObserver() {}
 void tcxIMEBase::syncWithSystemIME() {}
+void tcxIMEBase::setJapaneseMode(bool) {}
 
 #endif
