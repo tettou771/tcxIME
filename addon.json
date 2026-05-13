@@ -1,0 +1,16 @@
+{
+  "name": "tcxIME",
+  "description": "IME (Input Method Editor) support for non-Latin text input",
+  "author": "tettou771",
+  "license": "MIT",
+  "keywords": [
+    "ime",
+    "japanese",
+    "input",
+    "text"
+  ],
+  "platforms": [
+    "macos",
+    "win"
+  ]
+}
