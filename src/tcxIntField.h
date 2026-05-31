@@ -76,19 +76,17 @@ public:
         ime_.draw(0, 0);
     }
 
-    bool onMousePress(tc::Vec2 local, int button) override {
-        (void)button;
+    bool onMousePress(const tc::MouseEventArgs& e) override {
         activatingClick_ = !ime_.isEnabled();
         if (activatingClick_) enable();
-        ime_.setCursorFromMouse(local.x, local.y);
+        ime_.setCursorFromMouse(e.pos.x, e.pos.y);
         tc::redraw();
         return true;
     }
 
-    bool onMouseDrag(tc::Vec2 local, int button) override {
-        (void)button;
+    bool onMouseDrag(const tc::MouseEventArgs& e) override {
         if (activatingClick_) return true;
-        ime_.extendSelectionFromMouse(local.x, local.y);
+        ime_.extendSelectionFromMouse(e.pos.x, e.pos.y);
         tc::redraw();
         return true;
     }
