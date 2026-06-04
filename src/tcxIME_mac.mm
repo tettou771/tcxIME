@@ -61,14 +61,15 @@ void tcxIMEBase::setJapaneseMode(bool japanese) {
         (__bridge NSString*)kTISPropertyInputSourceID : (__bridge NSString*)targetID
     };
     CFArrayRef sources = TISCreateInputSourceList((__bridge CFDictionaryRef)filter, false);
-    if (sources && CFArrayGetCount(sources) > 0) {
+    bool found = sources && CFArrayGetCount(sources) > 0;
+    if (found) {
         TISInputSourceRef source = (TISInputSourceRef)CFArrayGetValueAtIndex(sources, 0);
         TISSelectInputSource(source);
     }
     if (sources) CFRelease(sources);
 
     // If exact match not found, try broader search
-    if (!sources || CFArrayGetCount(sources) == 0) {
+    if (!found) {
         NSString* keyword = japanese ? @"Japanese" : @"ABC";
         NSDictionary* broadFilter = @{
             (__bridge NSString*)kTISPropertyInputSourceCategory : (__bridge NSString*)kTISCategoryKeyboardInputSource

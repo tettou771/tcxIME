@@ -121,7 +121,7 @@ floatField->setFont("/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc", 
 floatField->setPos(20, 40);
 floatField->setSize(200, 30);
 floatField->setRange(-100.0f, 100.0f);
-floatField->setValue(3.14f);
+floatField->setValue(6.28f);
 floatField->onValueChanged = [](float v) {
     logNotice() << "Float: " << v;
 };

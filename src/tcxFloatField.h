@@ -86,7 +86,7 @@ public:
         return true;
     }
 
-    bool onMouseDrag(const tc::MouseEventArgs& e) override {
+    bool onMouseDrag(const tc::MouseDragEventArgs& e) override {
         if (activatingClick_) return true;
         ime_.extendSelectionFromMouse(e.pos.x, e.pos.y);
         tc::redraw();
