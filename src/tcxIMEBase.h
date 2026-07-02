@@ -31,15 +31,17 @@ typedef const struct __CFDictionary * CFDictionaryRef;
 #include <TrussC.h>
 
 // ---------------------------------------------------------------------------
-// tcxIMEBase - Platform-agnostic IME text management
+// tcx::ime::IMEBase - Platform-agnostic IME text management
 // ---------------------------------------------------------------------------
-class tcxIMEBase {
+namespace tcx { namespace ime {
+
+class IMEBase {
 public:
-    tcxIMEBase() {
+    IMEBase() {
         state_ = Eisu;
         clear();
     }
-    virtual ~tcxIMEBase() = default;
+    virtual ~IMEBase() = default;
 
     void enable();
     void disable();
@@ -149,7 +151,7 @@ protected:
     void onKeyPressed(tc::KeyEventArgs& key);
     tc::EventListener keyListener_;
 
-    static tcxIMEBase* activeIMEInstance_;
+    static IMEBase* activeIMEInstance_;
 
 #ifdef __APPLE__
     static void onInputSourceChanged(CFNotificationCenterRef center,
@@ -182,3 +184,14 @@ protected:
 
     float cursorBlinkOffsetTime_ = 0;
 };
+
+} } // namespace tcx::ime
+
+// -----------------------------------------------------------------------------
+// Backward compatibility. The canonical namespace is now `tcx::ime`. This silent
+// alias keeps older code compiling: the old global `tcxIMEBase` name.
+// DEPRECATED — removed in v1.0.0.
+// (No [[deprecated]] attribute: under the usual `using namespace tc;` it would
+//  warn on idiomatic unqualified use too. See tcxIME README for migration.)
+// -----------------------------------------------------------------------------
+using tcxIMEBase = tcx::ime::IMEBase; // deprecated: remove at v1.0.0

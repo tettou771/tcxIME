@@ -15,9 +15,11 @@
 #include "tcxIMEBase.h"
 
 // ---------------------------------------------------------------------------
-// tcxIME - Main class with Font-based drawing
+// tcx::ime::IME - Main class with Font-based drawing
 // ---------------------------------------------------------------------------
-class tcxIME : public tcxIMEBase {
+namespace tcx { namespace ime {
+
+class IME : public IMEBase {
 public:
     // Nested widget classes (defined in separate headers, included below)
     class TextField;
@@ -49,7 +51,7 @@ public:
     void draw(float x, float y) {
         tc::Font& f = getFont();
         if (!f.isLoaded()) {
-            tc::logError() << "tcxIME: font is not loaded.";
+            tc::logError() << "tcx::ime::IME: font is not loaded.";
             return;
         }
 
@@ -365,7 +367,19 @@ private:
     }
 };
 
-// Include nested class definitions
+} } // namespace tcx::ime
+
+// Include nested class definitions (each reopens namespace tcx::ime)
 #include "tcxTextField.h"
 #include "tcxFloatField.h"
 #include "tcxIntField.h"
+
+// -----------------------------------------------------------------------------
+// Backward compatibility. The canonical namespace is now `tcx::ime`. This silent
+// alias keeps older code compiling: the old global `tcxIME` name. Nested-type
+// spellings like `tcxIME::TextField` / `tcxIME::FloatField` keep working through
+// the alias. DEPRECATED — removed in v1.0.0.
+// (No [[deprecated]] attribute: under the usual `using namespace tc;` it would
+//  warn on idiomatic unqualified use too. See tcxIME README for migration.)
+// -----------------------------------------------------------------------------
+using tcxIME = tcx::ime::IME; // deprecated: remove at v1.0.0

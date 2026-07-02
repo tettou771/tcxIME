@@ -3,7 +3,9 @@
 using namespace std;
 using namespace tc;
 
-void tcxIMEBase::enable() {
+namespace tcx { namespace ime {
+
+void IMEBase::enable() {
     if (enabled_) return;
 
     // Disable previously active IME (only one can be active at a time)
@@ -24,7 +26,7 @@ void tcxIMEBase::enable() {
 #endif
 }
 
-void tcxIMEBase::disable() {
+void IMEBase::disable() {
     if (!enabled_) return;
 
     selectCancel();
@@ -39,7 +41,7 @@ void tcxIMEBase::disable() {
 #endif
 }
 
-void tcxIMEBase::clear() {
+void IMEBase::clear() {
     markedText_ = U"";
     markedSelectedLocation_ = 0;
     markedSelectedLength_ = 0;
@@ -57,7 +59,7 @@ void tcxIMEBase::clear() {
     }
 }
 
-void tcxIMEBase::onKeyPressed(KeyEventArgs& key) {
+void IMEBase::onKeyPressed(KeyEventArgs& key) {
     // Modifier key handling (Cmd on macOS, Ctrl elsewhere)
 #ifdef __APPLE__
     bool isCtrl = key.super;
@@ -220,7 +222,7 @@ void tcxIMEBase::onKeyPressed(KeyEventArgs& key) {
     cursorBlinkOffsetTime_ = getElapsedTimef();
 }
 
-string tcxIMEBase::getString() {
+string IMEBase::getString() {
     string all;
     for (int i = 0; i < (int)lines_.size(); i++) {
         if (i > 0 && softBreaks_.count(i) == 0) all += '\n';
@@ -229,13 +231,13 @@ string tcxIMEBase::getString() {
     return all;
 }
 
-void tcxIMEBase::setString(const string& str) {
+void IMEBase::setString(const string& str) {
     clear();
     u32string u32str = UTF8toUTF32(str);
     insertText(u32str);
 }
 
-u32string tcxIMEBase::getU32String() {
+u32string IMEBase::getU32String() {
     u32string all;
     for (int i = 0; i < (int)lines_.size(); i++) {
         if (i > 0 && softBreaks_.count(i) == 0) all += U'\n';
@@ -244,29 +246,29 @@ u32string tcxIMEBase::getU32String() {
     return all;
 }
 
-string tcxIMEBase::getLine(int l) {
+string IMEBase::getLine(int l) {
     if (0 <= l && l < (int)lines_.size()) {
         return UTF32toUTF8(lines_[l]);
     }
     return "";
 }
 
-string tcxIMEBase::getLineSubstr(int l, int begin, int end) {
+string IMEBase::getLineSubstr(int l, int begin, int end) {
     if (0 <= l && l < (int)lines_.size()) {
         return UTF32toUTF8(lines_[l].substr(begin, end));
     }
     return "";
 }
 
-string tcxIMEBase::getMarkedText() {
+string IMEBase::getMarkedText() {
     return UTF32toUTF8(markedText_);
 }
 
-string tcxIMEBase::getMarkedTextSubstr(int begin, int end) {
+string IMEBase::getMarkedTextSubstr(int begin, int end) {
     return UTF32toUTF8(markedText_.substr(begin, end));
 }
 
-void tcxIMEBase::insertText(const u32string& str) {
+void IMEBase::insertText(const u32string& str) {
     markedText_ = U"";
     markedSelectedLocation_ = 0;
     markedSelectedLength_ = 0;
@@ -288,7 +290,7 @@ void tcxIMEBase::insertText(const u32string& str) {
     rewrap();
 }
 
-void tcxIMEBase::setMarkedTextFromOS(const u32string& str, int selectedLocation, int selectedLength) {
+void IMEBase::setMarkedTextFromOS(const u32string& str, int selectedLocation, int selectedLength) {
     markedText_ = str;
     markedSelectedLocation_ = selectedLocation;
     markedSelectedLength_ = selectedLength;
@@ -296,7 +298,7 @@ void tcxIMEBase::setMarkedTextFromOS(const u32string& str, int selectedLocation,
     state_ = (str.length() > 0) ? Composing : Kana;
 }
 
-void tcxIMEBase::unmarkText() {
+void IMEBase::unmarkText() {
     if (markedText_.length() > 0) {
         addStr(lines_[cursorLine_], markedText_, cursorPos_);
         markedText_ = U"";
@@ -309,17 +311,17 @@ void tcxIMEBase::unmarkText() {
     rewrap();
 }
 
-void tcxIMEBase::setCandidates(const vector<u32string>& cands, int selectedIndex) {
+void IMEBase::setCandidates(const vector<u32string>& cands, int selectedIndex) {
     candidates_ = cands;
     candidateSelectedIndex_ = selectedIndex;
 }
 
-void tcxIMEBase::clearCandidates() {
+void IMEBase::clearCandidates() {
     candidates_.clear();
     candidateSelectedIndex_ = 0;
 }
 
-void tcxIMEBase::deleteSelected() {
+void IMEBase::deleteSelected() {
     if (!isSelected()) return;
 
     int bl, bn, el, en;
@@ -350,7 +352,7 @@ void tcxIMEBase::deleteSelected() {
     rewrap();
 }
 
-string tcxIMEBase::getSelectedText() {
+string IMEBase::getSelectedText() {
     if (!isSelected()) return "";
 
     int bl, bn, el, en;
@@ -383,7 +385,7 @@ string tcxIMEBase::getSelectedText() {
     return result;
 }
 
-void tcxIMEBase::newLine() {
+void IMEBase::newLine() {
     lines_.insert(lines_.begin() + cursorLine_ + 1, U"");
     lines_[cursorLine_ + 1] = lines_[cursorLine_].substr(cursorPos_, lines_[cursorLine_].length() - cursorPos_);
     lines_[cursorLine_] = lines_[cursorLine_].substr(0, cursorPos_);
@@ -392,7 +394,7 @@ void tcxIMEBase::newLine() {
     cursorPos_ = 0;
 }
 
-void tcxIMEBase::lineChange(int n) {
+void IMEBase::lineChange(int n) {
     if (n == 0) return;
     cursorLine_ = max(0, min(cursorLine_ + n, (int)lines_.size() - 1));
     if (cursorPos_ > (int)lines_[cursorLine_].size()) {
@@ -400,12 +402,12 @@ void tcxIMEBase::lineChange(int n) {
     }
 }
 
-void tcxIMEBase::addStr(u32string& target, const u32string& str, int& p) {
+void IMEBase::addStr(u32string& target, const u32string& str, int& p) {
     target = target.substr(0, p) + str + target.substr(p, target.length() - p);
     p += str.length();
 }
 
-void tcxIMEBase::backspaceCharacter(u32string& str, int& pos, bool lineMerge) {
+void IMEBase::backspaceCharacter(u32string& str, int& pos, bool lineMerge) {
     if (pos == 0) {
         if (lineMerge && cursorLine_ > 0) {
             bool isSoftBreak = softBreaks_.count(cursorLine_) > 0;
@@ -427,7 +429,7 @@ void tcxIMEBase::backspaceCharacter(u32string& str, int& pos, bool lineMerge) {
     }
 }
 
-void tcxIMEBase::deleteCharacter(u32string& str, int& pos, bool lineMerge) {
+void IMEBase::deleteCharacter(u32string& str, int& pos, bool lineMerge) {
     if ((int)str.length() < pos) {
         pos = (int)str.length();
     }
@@ -448,7 +450,7 @@ void tcxIMEBase::deleteCharacter(u32string& str, int& pos, bool lineMerge) {
 }
 
 // UTF-32 to UTF-8 conversion
-string tcxIMEBase::UTF32toUTF8(const u32string& u32str) {
+string IMEBase::UTF32toUTF8(const u32string& u32str) {
     string result;
     for (char32_t c : u32str) {
         if (c < 0x80) {
@@ -470,12 +472,12 @@ string tcxIMEBase::UTF32toUTF8(const u32string& u32str) {
     return result;
 }
 
-string tcxIMEBase::UTF32toUTF8(const char32_t& u32char) {
+string IMEBase::UTF32toUTF8(const char32_t& u32char) {
     return UTF32toUTF8(u32string(1, u32char));
 }
 
 // UTF-8 to UTF-32 conversion
-u32string tcxIMEBase::UTF8toUTF32(const string& str) {
+u32string IMEBase::UTF8toUTF32(const string& str) {
     u32string result;
     size_t i = 0;
     while (i < str.size()) {
@@ -506,9 +508,9 @@ u32string tcxIMEBase::UTF8toUTF32(const string& str) {
 }
 
 // ---------------------------------------------------------------------------
-// tcxIME::rewrap — Soft-wrap lines_ based on maxWidth_ using font metrics
+// IME::rewrap — Soft-wrap lines_ based on maxWidth_ using font metrics
 // ---------------------------------------------------------------------------
-void tcxIME::rewrap() {
+void IME::rewrap() {
     if (maxWidth_ <= 0) return;
 
     Font& f = getFont();
@@ -588,3 +590,5 @@ void tcxIME::rewrap() {
     cursorLine_ = (int)lines_.size() - 1;
     cursorPos_ = (int)lines_.back().length();
 }
+
+} } // namespace tcx::ime

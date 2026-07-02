@@ -4,19 +4,19 @@
 #import "tcxIMEView.h"
 #include <vector>
 
-class tcxIMEBase;
+namespace tcx { namespace ime { class IMEBase; } }
 
 // C++ callback functions (implemented in tcxIME_mac.mm)
 extern "C" {
-    void tcxIME_insertText(tcxIMEBase* ime, const char32_t* str, size_t len);
-    void tcxIME_setMarkedText(tcxIMEBase* ime, const char32_t* str, size_t len, int selLoc, int selLen);
-    void tcxIME_unmarkText(tcxIMEBase* ime);
-    void tcxIME_getMarkedTextScreenPosition(tcxIMEBase* ime, float* x, float* y);
+    void tcxIME_insertText(tcx::ime::IMEBase* ime, const char32_t* str, size_t len);
+    void tcxIME_setMarkedText(tcx::ime::IMEBase* ime, const char32_t* str, size_t len, int selLoc, int selLen);
+    void tcxIME_unmarkText(tcx::ime::IMEBase* ime);
+    void tcxIME_getMarkedTextScreenPosition(tcx::ime::IMEBase* ime, float* x, float* y);
 }
 
 @implementation tcxIMEView
 
-- (instancetype)initWithFrame:(NSRect)frameRect imeInstance:(tcxIMEBase*)ime {
+- (instancetype)initWithFrame:(NSRect)frameRect imeInstance:(tcx::ime::IMEBase*)ime {
     self = [super initWithFrame:frameRect];
     if (self) {
         _originalView = nil;
@@ -33,7 +33,7 @@ extern "C" {
     _originalView = view;
 }
 
-- (void)setImeInstance:(tcxIMEBase *)ime {
+- (void)setImeInstance:(tcx::ime::IMEBase *)ime {
     _imeInstance = ime;
 }
 

@@ -1,20 +1,22 @@
 #pragma once
 
 // =============================================================================
-// tcxIME::FloatingPointField_<T> - Numeric float/double input widget
-// Defined as a nested class of tcxIME (included via tcxIME.h)
+// tcx::ime::IME::FloatingPointField_<T> - Numeric float/double input widget
+// Defined as a nested class of IME (included via tcxIME.h)
 //
 // Usage:
-//   tcxIME::FloatField  → FloatingPointField_<float>
-//   tcxIME::DoubleField → FloatingPointField_<double>
+//   IME::FloatField  → FloatingPointField_<float>
+//   IME::DoubleField → FloatingPointField_<double>
 // =============================================================================
 
 #include <limits>
 #include <cmath>
 #include <charconv>
 
+namespace tcx { namespace ime {
+
 template<typename T>
-class tcxIME::FloatingPointField_ : public tc::RectNode {
+class IME::FloatingPointField_ : public tc::RectNode {
 public:
     // Value access
     T getValue() const { return value_; }
@@ -44,7 +46,7 @@ public:
     void setFont(tc::Font* sharedFont) { ime_.setFont(sharedFont); }
 
     // Access underlying IME
-    tcxIME& getIME() { return ime_; }
+    IME& getIME() { return ime_; }
 
     void setup() override {
         enableEvents();
@@ -94,7 +96,7 @@ public:
     }
 
 private:
-    tcxIME ime_;
+    IME ime_;
     bool activatingClick_ = false;
     T value_ = 0;
     T min_ = std::numeric_limits<T>::lowest();
@@ -153,3 +155,5 @@ private:
         tc::redraw();
     }
 };
+
+} } // namespace tcx::ime

@@ -1,11 +1,13 @@
 #pragma once
 
 // =============================================================================
-// tcxIME::TextField - Node-based text input with built-in mouse handling
-// Defined as a nested class of tcxIME (included via tcxIME.h)
+// tcx::ime::IME::TextField - Node-based text input with built-in mouse handling
+// Defined as a nested class of IME (included via tcxIME.h)
 // =============================================================================
 
-class tcxIME::TextField : public tc::RectNode {
+namespace tcx { namespace ime {
+
+class IME::TextField : public tc::RectNode {
 public:
     // Font setup
     void setFont(std::string path, float fontSize) { ime_.setFont(path, fontSize); }
@@ -39,7 +41,7 @@ public:
     }
 
     // Access underlying IME
-    tcxIME& getIME() { return ime_; }
+    IME& getIME() { return ime_; }
 
     void setup() override {
         enableEvents();
@@ -84,6 +86,8 @@ public:
     }
 
 private:
-    tcxIME ime_;
+    IME ime_;
     bool activatingClick_ = false;
 };
+
+} } // namespace tcx::ime

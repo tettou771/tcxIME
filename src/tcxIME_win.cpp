@@ -8,11 +8,13 @@
 
 using namespace std;
 
+namespace tcx { namespace ime {
+
 // Static member definitions
-tcxIMEBase* tcxIMEBase::activeIMEInstance_ = nullptr;
-WNDPROC tcxIMEBase::originalWndProc_ = nullptr;
-int tcxIMEBase::imeViewRefCount_ = 0;
-bool tcxIMEBase::suppressNextChar_ = false;
+IMEBase* IMEBase::activeIMEInstance_ = nullptr;
+WNDPROC IMEBase::originalWndProc_ = nullptr;
+int IMEBase::imeViewRefCount_ = 0;
+bool IMEBase::suppressNextChar_ = false;
 
 // ---------------------------------------------------------------------------
 // UTF-16 (wchar_t) to UTF-32 conversion with surrogate pair support
@@ -40,8 +42,8 @@ static u32string WideToU32(const wchar_t* wstr, int len) {
 // ---------------------------------------------------------------------------
 // WndProc subclass for intercepting IME messages
 // ---------------------------------------------------------------------------
-LRESULT CALLBACK tcxIMEBase::IMEWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    tcxIMEBase* ime = activeIMEInstance_;
+LRESULT CALLBACK IMEBase::IMEWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    IMEBase* ime = activeIMEInstance_;
 
     switch (msg) {
 
@@ -210,15 +212,15 @@ LRESULT CALLBACK tcxIMEBase::IMEWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPAR
 // ---------------------------------------------------------------------------
 // IME Observer
 // ---------------------------------------------------------------------------
-void tcxIMEBase::startIMEObserver() {
+void IMEBase::startIMEObserver() {
     syncWithSystemIME();
 }
 
-void tcxIMEBase::stopIMEObserver() {
+void IMEBase::stopIMEObserver() {
     // Nothing to do — subclassing is managed by setupIMEInputView/removeIMEInputView
 }
 
-void tcxIMEBase::setJapaneseMode(bool japanese) {
+void IMEBase::setJapaneseMode(bool japanese) {
     HWND hWnd = (HWND)sapp_win32_get_hwnd();
     if (!hWnd) return;
 
@@ -235,7 +237,7 @@ void tcxIMEBase::setJapaneseMode(bool japanese) {
     syncWithSystemIME();
 }
 
-void tcxIMEBase::syncWithSystemIME() {
+void IMEBase::syncWithSystemIME() {
     HWND hWnd = (HWND)sapp_win32_get_hwnd();
     if (!hWnd) return;
 
@@ -273,7 +275,7 @@ void tcxIMEBase::syncWithSystemIME() {
 // ---------------------------------------------------------------------------
 // Window subclassing
 // ---------------------------------------------------------------------------
-void tcxIMEBase::setupIMEInputView() {
+void IMEBase::setupIMEInputView() {
     imeViewRefCount_++;
 
     if (originalWndProc_ != nullptr) {
@@ -290,7 +292,7 @@ void tcxIMEBase::setupIMEInputView() {
     activeIMEInstance_ = this;
 }
 
-void tcxIMEBase::removeIMEInputView() {
+void IMEBase::removeIMEInputView() {
     imeViewRefCount_--;
 
     if (activeIMEInstance_ == this) {
@@ -311,8 +313,10 @@ void tcxIMEBase::removeIMEInputView() {
     }
 }
 
-void tcxIMEBase::becomeActiveIME() {
+void IMEBase::becomeActiveIME() {
     activeIMEInstance_ = this;
 }
+
+} } // namespace tcx::ime
 
 #endif // _WIN32

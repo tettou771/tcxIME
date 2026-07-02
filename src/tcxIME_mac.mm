@@ -12,13 +12,15 @@
 using namespace std;
 // NOTE: Do NOT 'using namespace tc;' here - macOS Rect conflicts with trussc::Rect
 
-// Static member definitions
-void* tcxIMEBase::sharedIMEView_ = nullptr;
-void* tcxIMEBase::sharedOriginalContentView_ = nullptr;
-tcxIMEBase* tcxIMEBase::activeIMEInstance_ = nullptr;
-int tcxIMEBase::imeViewRefCount_ = 0;
+namespace tcx { namespace ime {
 
-void tcxIMEBase::startIMEObserver() {
+// Static member definitions
+void* IMEBase::sharedIMEView_ = nullptr;
+void* IMEBase::sharedOriginalContentView_ = nullptr;
+IMEBase* IMEBase::activeIMEInstance_ = nullptr;
+int IMEBase::imeViewRefCount_ = 0;
+
+void IMEBase::startIMEObserver() {
     CFNotificationCenterAddObserver(
         CFNotificationCenterGetDistributedCenter(),
         this,
@@ -31,7 +33,7 @@ void tcxIMEBase::startIMEObserver() {
     syncWithSystemIME();
 }
 
-void tcxIMEBase::stopIMEObserver() {
+void IMEBase::stopIMEObserver() {
     CFNotificationCenterRemoveObserver(
         CFNotificationCenterGetDistributedCenter(),
         this,
@@ -40,18 +42,18 @@ void tcxIMEBase::stopIMEObserver() {
     );
 }
 
-void tcxIMEBase::onInputSourceChanged(CFNotificationCenterRef center,
+void IMEBase::onInputSourceChanged(CFNotificationCenterRef center,
                                       void* observer,
                                       CFNotificationName name,
                                       const void* object,
                                       CFDictionaryRef userInfo) {
-    tcxIMEBase* ime = static_cast<tcxIMEBase*>(observer);
+    IMEBase* ime = static_cast<IMEBase*>(observer);
     if (ime) {
         ime->syncWithSystemIME();
     }
 }
 
-void tcxIMEBase::setJapaneseMode(bool japanese) {
+void IMEBase::setJapaneseMode(bool japanese) {
     // Find the desired input source and select it
     CFStringRef targetID = japanese
         ? CFSTR("com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese")
@@ -91,7 +93,7 @@ void tcxIMEBase::setJapaneseMode(bool japanese) {
     syncWithSystemIME();
 }
 
-void tcxIMEBase::syncWithSystemIME() {
+void IMEBase::syncWithSystemIME() {
     TISInputSourceRef source = TISCopyCurrentKeyboardInputSource();
     if (source) {
         CFStringRef sourceID = (CFStringRef)TISGetInputSourceProperty(source, kTISPropertyInputSourceID);
@@ -114,7 +116,7 @@ void tcxIMEBase::syncWithSystemIME() {
     }
 }
 
-void tcxIMEBase::setupIMEInputView() {
+void IMEBase::setupIMEInputView() {
     imeViewRefCount_++;
 
     if (sharedIMEView_ != nullptr) {
@@ -144,7 +146,7 @@ void tcxIMEBase::setupIMEInputView() {
     [nsWindow makeFirstResponder:customView];
 }
 
-void tcxIMEBase::removeIMEInputView() {
+void IMEBase::removeIMEInputView() {
     imeViewRefCount_--;
 
     if (imeViewRefCount_ > 0) {
@@ -172,7 +174,7 @@ void tcxIMEBase::removeIMEInputView() {
     }
 }
 
-void tcxIMEBase::becomeActiveIME() {
+void IMEBase::becomeActiveIME() {
     if (sharedIMEView_ == nullptr) return;
 
     tcxIMEView* customView = (__bridge tcxIMEView*)sharedIMEView_;
@@ -180,30 +182,32 @@ void tcxIMEBase::becomeActiveIME() {
     activeIMEInstance_ = this;
 }
 
+} } // namespace tcx::ime
+
 // C-style callback functions for tcxIMEView
 extern "C" {
 
-void tcxIME_insertText(tcxIMEBase* ime, const char32_t* str, size_t len) {
+void tcxIME_insertText(tcx::ime::IMEBase* ime, const char32_t* str, size_t len) {
     if (ime && str) {
         u32string u32str(str, len);
         ime->insertText(u32str);
     }
 }
 
-void tcxIME_setMarkedText(tcxIMEBase* ime, const char32_t* str, size_t len, int selLoc, int selLen) {
+void tcxIME_setMarkedText(tcx::ime::IMEBase* ime, const char32_t* str, size_t len, int selLoc, int selLen) {
     if (ime) {
         u32string u32str(str, len);
         ime->setMarkedTextFromOS(u32str, selLoc, selLen);
     }
 }
 
-void tcxIME_unmarkText(tcxIMEBase* ime) {
+void tcxIME_unmarkText(tcx::ime::IMEBase* ime) {
     if (ime) {
         ime->unmarkText();
     }
 }
 
-void tcxIME_getMarkedTextScreenPosition(tcxIMEBase* ime, float* x, float* y) {
+void tcxIME_getMarkedTextScreenPosition(tcx::ime::IMEBase* ime, float* x, float* y) {
     if (ime && x && y) {
         tc::Vec2 pos = ime->getMarkedTextScreenPosition();
         *x = pos.x;

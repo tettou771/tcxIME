@@ -5,11 +5,15 @@
 
 #include "tcxIME.h"
 
-tcxIMEBase* tcxIMEBase::activeIMEInstance_ = nullptr;
+namespace tcx { namespace ime {
 
-void tcxIMEBase::startIMEObserver() {}
-void tcxIMEBase::stopIMEObserver() {}
-void tcxIMEBase::syncWithSystemIME() {}
-void tcxIMEBase::setJapaneseMode(bool) {}
+IMEBase* IMEBase::activeIMEInstance_ = nullptr;
+
+void IMEBase::startIMEObserver() {}
+void IMEBase::stopIMEObserver() {}
+void IMEBase::syncWithSystemIME() {}
+void IMEBase::setJapaneseMode(bool) {}
+
+} } // namespace tcx::ime
 
 #endif

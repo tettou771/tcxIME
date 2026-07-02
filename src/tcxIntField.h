@@ -1,19 +1,21 @@
 #pragma once
 
 // =============================================================================
-// tcxIME::IntegerField_<T> - Integer input widget
-// Defined as a nested class of tcxIME (included via tcxIME.h)
+// tcx::ime::IME::IntegerField_<T> - Integer input widget
+// Defined as a nested class of IME (included via tcxIME.h)
 //
 // Usage:
-//   tcxIME::IntField   → IntegerField_<int>
-//   tcxIME::Int64Field → IntegerField_<int64_t>
+//   IME::IntField   → IntegerField_<int>
+//   IME::Int64Field → IntegerField_<int64_t>
 // =============================================================================
 
 #include <limits>
 #include <cstdlib>
 
+namespace tcx { namespace ime {
+
 template<typename T>
-class tcxIME::IntegerField_ : public tc::RectNode {
+class IME::IntegerField_ : public tc::RectNode {
 public:
     // Value access
     T getValue() const { return value_; }
@@ -43,7 +45,7 @@ public:
     void setFont(tc::Font* sharedFont) { ime_.setFont(sharedFont); }
 
     // Access underlying IME
-    tcxIME& getIME() { return ime_; }
+    IME& getIME() { return ime_; }
 
     void setup() override {
         enableEvents();
@@ -92,7 +94,7 @@ public:
     }
 
 private:
-    tcxIME ime_;
+    IME ime_;
     bool activatingClick_ = false;
     T value_ = 0;
     T min_ = std::numeric_limits<T>::lowest();
@@ -140,3 +142,5 @@ private:
         tc::redraw();
     }
 };
+
+} } // namespace tcx::ime
